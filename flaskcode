@@ -1,1 +1,305 @@
+# Подключение необходимых библиотек и модулей
+from flask import Flask, request, jsonify, session, make_response
+from flask_cors import CORS
+from flask_mysqldb import MySQL
+from flask_bcrypt import Bcrypt
+from PIL import Image
+from scipy.interpolate import splprep, splev
+import random
+import os
+import cv2
+import numpy as np
+import time
+from werkzeug.utils import secure_filename
 
+# Создание экземпляра приложения Flask
+app = Flask(__name__)
+cors = CORS(app, resources={r"/api/*": {"origins": "*"}}, allow_methods=["GET", "POST"])
+
+# Конфигурация для подключения к базе данных MySQL
+app.config['MYSQL_HOST'] = 'localhost'
+app.config['MYSQL_PORT'] = 3306
+app.config['MYSQL_USER'] = 'root'
+app.config['MYSQL_PASSWORD'] = 'root'
+app.config['MYSQL_DB'] = 'diplom'
+
+# Конфигурация сессионных cookies
+app.config['SESSION_COOKIE_HTTPONLY'] = False  # Ограничение доступа к сессионному cookie через JavaScript
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Ограничение отправки сессионного cookie только при запросах с того же сайта
+app.config['SESSION_COOKIE_PATH'] = '/'  # Путь, на котором доступно сессионное cookie
+app.config['SESSION_COOKIE_SECURE'] = False  # Передача сессионного cookie только через HTTPS
+
+# Конфигурация загрузки файлов
+app.config['ALLOWED_EXTENSIONS'] = {'png'}
+app.config['UPLOAD_FOLDER'] = 'C:\server\data\htdocs\Diplom\my-app\src\imades'
+
+# Инициализация расширений
+mysql = MySQL(app)
+bcrypt = Bcrypt(app)
+app.secret_key = os.urandom(30)
+
+# Переменная для хранения сгенерированного пароля
+codekey = None
+
+# Функция генерации одноразового кода
+def generate_kod(filename):
+    num_pixels = 4 # количество точек ломаной линии
+    image = Image.open(filename)
+    width, height = image.size
+    pixels = np.array(image)
+    # Цикл для получения 4 случайных пикселей определенного цвета      
+    while True:  
+        random_pixel = (random.randint(0, height - 1), random.randint(0, width - 1)) # получение координат случайного пикселя
+        target_color = pixels[random_pixel] # определнение цвета случайного пикселя
+        # получение 4 случайных пикселей заданного цвета
+        mask = np.all(pixels == target_color, axis=-1)
+        colored_pixel_indices = np.column_stack(np.where(mask))
+        if len(colored_pixel_indices) >= num_pixels:
+            break  
+    # аппроксимация сплайном 3 порядка 
+    # для получения начального заполнения генератора
+    selected_pixels = colored_pixel_indices[random.sample(range(len(colored_pixel_indices)), num_pixels)]
+    x, y = selected_pixels[:, 1], selected_pixels[:, 0]
+    tck, u = splprep([x, y], k=3, s=0)
+    coeff_y = np.array(tck[1])
+    # получение случайного кода с помощью генератора
+    odnomer_array = (abs(coeff_y.astype(int))).flatten()
+    zatravka = ''.join(map(str, odnomer_array))
+    code = str(random.randint(0, 999999)).zfill(6)
+    return code
+  
+# Функция проверки расширения файла    
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+# Функция определения наличия лица на изображении
+def face(image_path):
+    # Загрузка предварительно обученной модели для обнаружения лиц
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    image = cv2.imread(image_path)
+    # Преобразование фото в черно-белое
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # Обнаружение лиц
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    # Вывод результатов 
+    for (x, y, w, h) in faces:
+        cv2.rectangle(image, (x, y), (x+w, y+h), (255, 0, 0), 2)
+    # Отображение фото с обнаруженными лицами
+    cv2.namedWindow('Faces Detected', cv2.WINDOW_NORMAL)
+    cv2.imshow('Faces Detected', image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    # True, если лица обнаружены
+    return len(faces) > 0
+
+# Декоратор, определяющий маршрут для обработки POST-запросов по адресу /api/register
+@app.route("/api/register", methods=['POST'])
+# Функция обработки запроса регистрации для получения и занесения данных пользователя в БД
+def register():
+    data = request.json # получение данных
+    if not all(key in data for key in ['login', 'pass', 'email', 'name']):
+        return jsonify({'message': 'Отсутствуют обязательные поля'}), 400
+    login = data['login']
+    passw = data['pass']
+    email = data['email']
+    name = data['name']
+    # получение хеша пароля
+    hashed_password = bcrypt.generate_password_hash(passw).decode('utf-8')
+    # Формиравание запроса для базы данных (проверка сеществования пользователя)
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT * FROM users WHERE login = %s OR email = %s", (login, email))
+    if cur.fetchone():
+        cur.close()
+        return jsonify({'message': 'Логин или электронная почта уже существуют'}), 409
+    # Формиравание запроса для базы данных (внесение данных в БД)
+    sql = "INSERT INTO users (login, password, email, name) VALUES (%s, %s, %s, %s)"
+    val = (login, hashed_password, email, name)
+    cur.execute(sql, val)
+    mysql.connection.commit()
+    cur.close()    
+    # Создаем HTTP-ответ с сообщением о успешной регистрации и устанавливаем куки
+    response = make_response(jsonify({'message': 'Регистрация успешна'}), 200)
+    response.set_cookie('login', login)
+    return response
+
+# Декоратор, определяющий маршрут для обработки POST-запросов по адресу /api/authenticate
+@app.route("/api/authenticate", methods=['POST'])
+# Функция обработки запроса авторизации для получения и проверки данных пользователя в БД
+def authenticate():
+    session.clear() # очистка сессий
+    data = request.json # получение данных
+    if not all(key in data for key in ['login', 'pass']):
+        return jsonify({'message': 'Отсутствуют обязательные поля'}), 400
+    login = data['login']
+    passw = data['pass']
+    # Формиравание запроса для базы данных (проверка верного входа пользователя)
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT * FROM users WHERE login = %s", (login,))
+    user = cur.fetchone()
+    cur.close()
+
+    if user and bcrypt.check_password_hash(user[2], passw):
+        session['login'] = login
+        session['email'] = user[3]
+        session['name'] = user[4]
+        
+        # Создаем куки с именем пользователя
+        response = make_response(jsonify({'message': 'Аутентификация успешна'}), 200)
+        response.set_cookie('username', login)  # Устанавливаем куки с именем пользователя
+        return response
+    else:
+        return jsonify({'message': 'Неверный логин или пароль'}), 401
+
+    
+@app.route("/api/photo/<login>", methods=['GET', 'POST'])
+def photo(login):
+    if request.method == 'GET':
+        
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT login, email, name FROM users WHERE login = %s", (login,))
+        user = cur.fetchone()
+        cur.close()
+
+        if user:
+            return jsonify({'login': user[0], 'email': user[1], 'name': user[2]}), 200
+        else:
+            return jsonify({'message': 'Данные пользователя не найдены'}), 404
+    else:
+        # Обрабатываем POST запрос для загрузки файла
+        if 'file' not in request.files:
+            return jsonify({'message': 'No file part'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'message': 'No selected file'}), 400
+        if file and allowed_file(file.filename):
+            filename = secure_filename(login + '.png')
+            if not os.path.exists(app.config['UPLOAD_FOLDER']):
+                os.makedirs(app.config['UPLOAD_FOLDER'])
+            
+            # Проверяем наличие лица на загруженном изображении
+            image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(image_path)
+            if face(image_path):
+                cur = mysql.connection.cursor()   
+                
+                sql = "INSERT INTO photo (image_path, name_photo) VALUES (%s, %s)"
+                val = (app.config['UPLOAD_FOLDER'], login)
+                cur.execute(sql, val)             
+                mysql.connection.commit()               
+                cur.close()
+                return jsonify({'message': 'Фотография загружена успешно', 'filename': filename}), 201
+            else:
+                os.remove(image_path)  # Удаляем файл, если на нем нет лица
+                return jsonify({'message': 'На изображении не обнаружено лица'}), 422
+        else:
+            return jsonify({'message': 'Недопустимый формат файла, разрешены только файлы в формате PNG'}), 400
+    
+    
+@app.route("/api/autf/<login>", methods=['GET', 'POST'])
+def autf(login):
+ 
+    if request.method == 'GET':
+        
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT login, email, name FROM users WHERE login = %s", (login,))
+        user = cur.fetchone()
+        cur.close()   
+        return jsonify({'message': 'Данные пользователя не найдены'}), 404    
+    
+        if user:
+            return jsonify({'login': user[0], 'email': user[1], 'name': user[2]}), 200
+        else:
+            return jsonify({'message': 'Данные пользователя не найдены'}), 404          
+    else:
+        data = request.json
+    
+        kod = data['code']
+        print(kod)
+        hashed_kod = bcrypt.generate_password_hash(kod).decode('utf-8')
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT * FROM kod WHERE login = %s", (login,))
+        hashed = cur.fetchone()
+        cur.close()
+        print(hashed)
+        print(hashed[2])
+        print(bcrypt.check_password_hash(hashed[2], kod))
+        
+        if bcrypt.check_password_hash(hashed[2], kod):
+            return jsonify({'success': True,'message': 'Аутентификация успешна'}), 200
+        else:
+            return jsonify({'success': False,'message': 'Неверный код'}), 401
+    
+    
+@app.route('/andro', methods=['POST'])
+def andro():
+    data = request.json
+    print(data)
+
+    login = data['username']
+    passw = data['password']
+
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT * FROM users WHERE login = %s", (login,))
+    user = cur.fetchone()
+    cur.close()
+
+    if user and bcrypt.check_password_hash(user[2], passw):
+        session['login'] = login
+        session['email'] = user[3]
+        session['name'] = user[4]
+        
+        response = make_response(jsonify({'message': 'Аутентификация успешна'}), 200)
+        response.set_cookie('username', login)  
+        return jsonify({'success': True, 'message': 'Аутентификация успешна'}), 200
+    else:
+        return jsonify({'success': False, 'message': 'Неверный логин или пароль'}), 401     
+    
+@app.route('/key', methods=['GET', 'POST'])
+def key():
+    global codekey
+    global filename
+    global login
+    if request.method == 'POST':
+        data = request.json
+
+        login = data['login']
+        namephoto = login
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT image_path, name_photo FROM photo WHERE name_photo = %s", (namephoto,))
+        photo = cur.fetchone()
+        cur.close()
+     
+        if photo:
+            file_path = photo[0]
+            file_name = photo[1]
+            filename = os.path.join(file_path, file_name + ".png")
+            print(filename)  
+
+        if photo:
+            return jsonify({'success': True, 'message': 'Код обновлен'}), 200
+        else:
+            return jsonify({'success': False, 'message': 'Фотография не найдена'}), 404
+    else:
+        codekey = generate_kod(filename) 
+        hashed_code = bcrypt.generate_password_hash(codekey).decode('utf-8')
+        key = codekey
+        
+        cur = mysql.connection.cursor()
+        cur.execute("DELETE FROM kod WHERE login = %s", (login,))
+        mysql.connection.commit()
+        cur.close()
+        
+        cur = mysql.connection.cursor()
+        cur.execute("INSERT INTO kod (login, kod) VALUES (%s, %s)", (login, hashed_code))
+        mysql.connection.commit()
+        cur.close()
+        
+        print("Ответ перед отправкой:", {'code': key}) 
+        return jsonify({'code': key})
+    
+@app.route("/")
+def hello():
+    return "Hello"
+
+if __name__ == "__main__":
+    app.run()
