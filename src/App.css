@@ -1,0 +1,155 @@
+body {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  background-image: url(img/background.jpg);
+  background-size: cover;
+  background-position: center;
+  font-family: 'Roboto', sans-serif;
+  overflow: auto;
+  backdrop-filter: blur(5px);
+}
+
+input {
+  border: 1px solid rgb(172, 171, 171);
+  border-radius: 10px;
+  padding: 5px;
+  outline: none;
+  margin: 5px;
+  width: 100%;
+}
+
+.form-wrap {
+  width: 450px;
+  position: relative;
+}
+
+.form-wrap * {
+  box-sizing: border-box;
+}
+
+.form-wrap form {
+  background: #ffffff;
+  border-radius: 0 0 20px 20px;
+  padding: 2em;
+}
+
+.shapka {
+  display: flex;
+  justify-content: space-between; 
+  align-items: flex-end; 
+}
+
+.tab {
+  font-family: 'Roboto', sans-serif;
+  border-radius: 20px 20px 0 0;
+  color: rgb(0, 0, 0);
+  text-align: center;
+  padding: 1em;
+  cursor: pointer;
+}
+
+.tab-text {
+  width: 100%; 
+}
+
+form {
+  display: none;
+  flex-direction: column;
+  gap: 1em;
+  display: flex;
+}
+
+.shapka :hover {
+  background-color : #b08477;
+  border-radius: 20px 20px 0 0;
+}
+
+.auth{
+  background: #e4ac9c;
+  width: 225px;
+  border-radius: 20px 20px 0 0;
+}
+
+.reg{
+  background-color :#e4ac9c;
+  width: 225px;
+  border-radius: 20px 20px 0 0;
+}
+
+.auth-active{
+  background: rgb(255, 255, 255);
+  width: 225px;
+  border-radius: 20px 20px 0 0;
+}
+
+.reg-active{
+  background: rgb(255, 255, 255);
+  width: 225px;
+  border-radius: 20px 20px 0 0;
+}
+
+#auth form { 
+  border-top-right-radius: 20px; 
+}
+
+#reg form {
+  border-top-left-radius: 20px; 
+}
+
+button {
+  display: block;
+  margin: 0 auto;
+  padding: 0.5em 2em;
+  margin-top: 1em;
+}
+
+.but {
+	display: block;
+  border-radius: 40px;
+	background-color: #e4ac9c;
+	border: none;
+	color: #FFFFFF;
+	text-align: center;
+	font-size: 28px;
+	padding: 0.5em 2em;
+	width: 400px;
+  justify-content: flex-end;
+	transition: all 0.5s;
+	cursor: pointer;
+  margin: 0 auto;
+  margin-top: 1em;
+}
+
+.but span {
+	cursor: pointer;
+	display: inline-block;
+	position: relative;
+	transition: 0.5s;
+    justify-content: center;
+}
+
+.but span:after {
+	content: '\00bb';
+	position: absolute;
+	opacity: 0;
+	top: 0;
+	right: -20px;
+	transition: 0.5s;
+}
+  
+.but:hover span {
+	padding-right: 25px;
+}
+  
+.but:hover span:after {
+	opacity: 1;
+	right: 0;
+}
+ 
+label {
+  display: block;
+  margin-bottom: 0.4em;
+}
