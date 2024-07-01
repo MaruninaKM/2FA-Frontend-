@@ -13,13 +13,6 @@ body {
   backdrop-filter: blur(5px);
 }
 
-
-.codeInput {
-  text-align: justify ;
-  color:  #e4ac9c;;
-}
-
-
 input {
   border: 1px solid rgb(172, 171, 171);
   border-radius: 10px;
@@ -112,49 +105,6 @@ button {
   margin: 0 auto;
   padding: 0.5em 2em;
   margin-top: 1em;
-}
-
-
-.buta {
-	display: block;
-  border-radius: 40px;
-	background-color: #e4ac9c;
-	border: none;
-	color: #FFFFFF;
-	text-align: center;
-	font-size: 28px;
-	padding: 0.5em 2em;
-	justify-content: flex-end;
-	transition: all 0.5s;
-	cursor: pointer;
-  margin: 0 auto;
-  margin-top: 1em;
-}
-
-.buta span {
-	cursor: pointer;
-	display: inline-block;
-	position: relative;
-	transition: 0.5s;
-    justify-content: center;
-}
-
-.buta span:after {
-	content: '\00bb';
-	position: absolute;
-	opacity: 0;
-	top: 0;
-	right: -20px;
-	transition: 0.5s;
-}
-  
-.buta:hover span {
-	padding-right: 25px;
-}
-  
-.buta:hover span:after {
-	opacity: 1;
-	right: 0;
 }
 
 .but {

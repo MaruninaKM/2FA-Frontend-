@@ -10,15 +10,39 @@ label {
 h1 {
     color: #FFFFFF;
     text-align: center;
+    font-weight: bold;
 }
 
-h2 {   
-    margin-top: 20px;
+hr {
+    border: none; 
+    color: rgb(255, 255, 255);
+    background-color: rgb(255, 255, 255); 
+    height: 1px; 
+}
+
+.ph{
+    margin-top: 0px;
     margin-left : 50px;
     line-height: 30px;
     width: 150px;
-    color: #FFFFFF;
+    color: hsl(0, 0%, 100%);
+    font-size: 1.5em;
+    white-space: nowrap;
 }
+
+.zag {
+    color: rgb(255, 255, 255); 
+    display: inline;
+    font-size: 0.7em;
+}
+
+.data {
+    color: #9d776c; 
+    display: inline;
+    font-style: italic;
+    font-size: 0.7em;
+}
+
 
 .pho { 
     margin-right : 5px;

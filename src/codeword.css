@@ -1,0 +1,13 @@
+
+.pho { 
+    margin-right : 5px;
+    margin-left: 70px;
+    display: inline-block;
+    height: 150px; 
+    border-radius: 20px 20px 20px 20px;
+    overflow: hidden; 
+}
+.tot { 
+    max-width: 100%;
+    max-height: 100%; 
+}
